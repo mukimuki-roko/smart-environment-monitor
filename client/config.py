@@ -1,6 +1,8 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+load_dotenv(Path(__file__).with_name(".env"), override=True)
 
 def require_env(name): #.envにデータが設定されているかチェック
     value = os.getenv(name)
@@ -13,6 +15,8 @@ SERVER_PORT = int(require_env("SERVER_PORT"))
 
 CLIENT_REGION = require_env("CLIENT_REGION")
 CLIENT_ID = require_env("CLIENT_ID")
+
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 DEFAULT_SEND_INTERVAL = 4
 

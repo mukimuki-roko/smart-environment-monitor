@@ -7,7 +7,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-CSV_PATH = Path("sensor_data.csv")
+CSV_PATH = Path("data/sensor_data.csv")
 CSV_LOCK = threading.Lock()
 
 CSV_FIELDS = [

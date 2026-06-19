@@ -30,12 +30,17 @@ def build_server_disconnect_error_embed(
                     {
                         "name": "Server",
                         "value": f"{server_addr}:{server_port}",
+                        "inline": False,
+                    },
+                    {
+                        "name": "Client Region",
+                        "value": f'{data["region"]}',
                         "inline": True,
                     },
                     {
-                        "name": "Client",
-                        "value": f'{data["client_id"]} / {data["region"]}',
-                        "inline": False,
+                        "name": "Client ID",
+                        "value": f'{data["client_id"]}',
+                        "inline": True,
                     },
                     {
                         "name": "Datetime",

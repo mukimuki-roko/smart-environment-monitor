@@ -1,31 +1,51 @@
 import logging
 import time
-
+from datetime import datetime,timezone,timedelta
 from config.settings import (
     DEFAULT_SEND_INTERVAL,
     DISCORD_WEBHOOK_URL,
     HEARTBEAT_INTERVAL,
+    CLIENT_ID,
+    CLIENT_REGION
 )
 from services.notification.discord import notify_discord
 from sensor.dummy import get_dummy_data
 from services.payload import build_payload, build_server_disconnect_error_embed
 from services.sender import send_to_server
 from services.heartbeart import send_heartbeat
+from utils.data_class import (
+    ClientHeartBeat,
+    ClientMetaData,
+    ClientRuntimeHealth,
+)
 
 logger = logging.getLogger(__name__)
+JST = timezone(timedelta(hours=9))
 
-last_heart_beat = 0
-
-sensor_read = False
-sensor_data = False
-heartbeat_error = None
-
+def now_string() -> str:
+    return datetime.now(JST).isoformat(timespec="seconds")
 
 def run_mock_mode(args):
+    started_at = now_string()
+    
+    health = ClientHeartBeat(
+        client=ClientMetaData(
+            client_id = CLIENT_ID,
+            region = CLIENT_REGION,
+        ),
+        runtime=ClientRuntimeHealth(started_at = started_at)
+    )
     logger.info("start mock mode")
-
     while True:
         try:
+            health.runtime.loop_count += 1
+            health.runtime.last_loop_at = now_string()
+            health.runtime.uptime_seconds = int(
+                datetime.now(JST).timestamp() 
+                - datetime.fromisoformat(started_at).timestamp()
+            )
+            dht_health = health.sensor.dht22
+            
             sensor_data = get_dummy_data()
             sensor_read = True
             logger.debug(sensor_data)

@@ -209,6 +209,129 @@ h1 {
     margin-bottom: 14px;
 }
 
+.health-panel {
+    margin-bottom: 14px;
+}
+
+.health-panel-header {
+    margin-bottom: 12px;
+}
+
+.health-panel-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.health-panel-header p {
+    margin: 6px 0 0;
+    color: #667085;
+    font-size: 14px;
+}
+
+.health-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.health-card {
+    padding: 16px;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.health-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.health-card h3,
+.health-detail-group h4 {
+    margin: 0;
+}
+
+.health-card h3 {
+    font-size: 17px;
+}
+
+.health-card-header p,
+.health-summary {
+    margin: 5px 0 0;
+    color: #667085;
+    font-size: 13px;
+}
+
+.health-summary {
+    min-height: 20px;
+    color: #344054;
+}
+
+.health-status {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.health-status-online {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.health-status-offline {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.health-card details {
+    margin-top: 12px;
+}
+
+.health-card summary {
+    cursor: pointer;
+    color: #344054;
+    font-size: 14px;
+}
+
+.health-detail-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.health-detail-group {
+    padding: 10px;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.health-detail-group h4 {
+    font-size: 14px;
+}
+
+.health-detail-group dl {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 5px 10px;
+    margin: 8px 0 0;
+    font-size: 12px;
+}
+
+.health-detail-group dt {
+    color: #667085;
+}
+
+.health-detail-group dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
 .graph-controls {
     display: flex;
     justify-content: flex-end;
@@ -571,6 +694,11 @@ tbody tr:hover {
     }
 
     .graph-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .health-list,
+    .health-detail-groups {
         grid-template-columns: 1fr;
     }
 

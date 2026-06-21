@@ -19,10 +19,11 @@
             </div>
         </header>
 
-        <section class="toolbar" aria-label="表示切り替え" {% if not rows %}hidden{% endif %}>
+        <section class="toolbar" aria-label="表示切り替え">
             <div class="view-toggle">
                 <button class="view-button is-active" type="button" data-view-button="table">一覧</button>
                 <button class="view-button" type="button" data-view-button="graph">グラフ</button>
+                <button class="view-button" type="button" data-view-button="health">ヘルス</button>
             </div>
         </section>
 
@@ -76,6 +77,20 @@
                     <canvas data-chart-metric="co2" width="520" height="280"></canvas>
                 </section>
             </div>
+        </section>
+
+        <section class="health-panel" data-view-panel="health" hidden>
+            <div class="health-panel-header">
+                <div>
+                    <h2>端末ヘルス</h2>
+                    <p>最終受信から30秒を超えた端末はオフラインとして表示します。</p>
+                </div>
+            </div>
+            <div class="health-list" data-health-list></div>
+            <section class="empty-state" data-health-empty hidden>
+                <h2>ヘルスデータがありません</h2>
+                <p>クライアントからヘルスデータが届くと、ここに表示されます。</p>
+            </section>
         </section>
 
         <section class="filter-panel" aria-label="検索条件" {% if not rows %}hidden{% endif %}>

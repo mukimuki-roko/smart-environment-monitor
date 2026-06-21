@@ -1,21 +1,18 @@
-import datetime
 import json
 import logging
 import urllib.error
 import urllib.request
+from dataclasses import asdict
 
-from config.settings import CLIENT_ID, CLIENT_REGION, WEB_HEALTH_INTERVAL
+from config.settings import WEB_HEALTH_INTERVAL
+from utils.data_class import ClientHeartBeat
 
 logger = logging.getLogger(__name__)
 
 
 def send_heartbeat(
-    sensor_read_ok,
-    sensor_data_ok,
-    error=None,
+    health: ClientHeartBeat,
     web_health_url=None,
-    uptime_seconds=None,
-    failure_count=0,
     timeout=5,
 ):
     url = web_health_url or WEB_HEALTH_INTERVAL
@@ -23,18 +20,7 @@ def send_heartbeat(
         logger.warning("heartbeat url is not set")
         return False
 
-    jst = datetime.timezone(datetime.timedelta(hours=9))
-    payload = {
-        "client_id": CLIENT_ID,
-        "region": CLIENT_REGION,
-        "datetime": datetime.datetime.now(jst).strftime("%Y-%m-%d %A %H:%M:%S"),
-        "alive": True,
-        "sensor_read_ok": bool(sensor_read_ok),
-        "sensor_data_ok": bool(sensor_data_ok),
-        "error": str(error) if error else None,
-        "uptime_seconds": uptime_seconds,
-        "failure_count": int(failure_count),
-    }
+    payload = asdict(health)
 
     request = urllib.request.Request(
         url,

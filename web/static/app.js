@@ -5,6 +5,9 @@ let filteredRows = [];
 let sortedRows = [];
 let pagedRows = [];
 let chartRows = [];
+let healthClients = [];
+let activeView = "table";
+let healthStream;
 let sortState = { field: "datetime", direction: "desc" };
 let paginationState = { page: 1, pageSize: 25 };
 let chartLimit = 50;
@@ -14,6 +17,9 @@ const textFields = ["client_id", "region"];
 const numericFields = ["temperature", "humidity", "pressure", "co2"];
 
 const chartPanel = document.querySelector('[data-view-panel="graph"]');
+const healthPanel = document.querySelector('[data-view-panel="health"]');
+const healthList = document.querySelector("[data-health-list]");
+const healthEmpty = document.querySelector("[data-health-empty]");
 const chartCanvases = document.querySelectorAll("[data-chart-metric]");
 const chartPanes = document.querySelectorAll("[data-graph-pane]");
 const chartDownloadButtons = document.querySelectorAll("[data-graph-download]");
@@ -87,17 +93,21 @@ const metricFileNames = {
 };
 
 function currentView() {
-    return chartPanel.hidden ? "table" : "graph";
+    return activeView;
 }
 
 function setView(view) {
+    activeView = view;
     const showGraph = view === "graph";
+    const showHealth = view === "health";
     const hasRows = tableRows.length > 0;
 
     chartPanel.hidden = !showGraph || !hasRows;
-    tablePanel.hidden = showGraph || !hasRows;
-    filterPanel.hidden = !hasRows;
-    paginationBar.hidden = !hasRows || showGraph;
+    healthPanel.hidden = !showHealth;
+    tablePanel.hidden = view !== "table" || !hasRows;
+    filterPanel.hidden = view !== "table" || !hasRows;
+    paginationBar.hidden = view !== "table" || !hasRows;
+    emptyState.hidden = view !== "table" || hasRows;
 
     viewButtons.forEach((button) => {
         button.classList.toggle("is-active", button.dataset.viewButton === view);
@@ -108,25 +118,55 @@ function setView(view) {
     }
 }
 
-async function refreshSensorData() {
+async function refreshDashboardData() {
     const view = currentView();
 
     refreshButton.disabled = true;
 
     try {
-        const response = await fetch("/api/sensor-data", { cache: "no-store" });
+        const [sensorResponse, healthResponse] = await Promise.all([
+            fetch("/api/sensor-data", { cache: "no-store" }),
+            fetch("/api/health", { cache: "no-store" }),
+        ]);
 
-        if (!response.ok) {
-            throw new Error(`更新に失敗しました: ${response.status}`);
+        if (!sensorResponse.ok || !healthResponse.ok) {
+            throw new Error("更新に失敗しました");
         }
 
-        updateSensorData(await response.json(), { preservePage: true });
+        updateSensorData(await sensorResponse.json(), { preservePage: true });
+        updateHealthData(await healthResponse.json());
         setView(view);
     } catch (error) {
         console.error(error);
     } finally {
         refreshButton.disabled = false;
     }
+}
+
+async function refreshHealthData() {
+    try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`ヘルス更新に失敗しました: ${response.status}`);
+        }
+        updateHealthData(await response.json());
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function connectHealthStream() {
+    if (!window.EventSource || healthStream) {
+        return;
+    }
+
+    healthStream = new EventSource("/api/health/stream");
+    healthStream.addEventListener("health", () => {
+        refreshHealthData();
+    });
+    healthStream.addEventListener("error", () => {
+        // EventSource reconnects automatically using the retry interval sent by the server.
+    });
 }
 
 function updateSensorData(payload, options = {}) {
@@ -137,6 +177,102 @@ function updateSensorData(payload, options = {}) {
     renderSummary(payload);
     updateDataViews({ preservePage: options.preservePage });
     renderEmptyState();
+}
+
+function updateHealthData(payload) {
+    healthClients = payload.clients || [];
+    renderHealth();
+}
+
+function renderHealth() {
+    if (!healthList || !healthEmpty) {
+        return;
+    }
+
+    healthList.replaceChildren(...healthClients.map(createHealthCard));
+    healthEmpty.hidden = healthClients.length > 0;
+}
+
+function createHealthCard(client) {
+    const card = document.createElement("article");
+    card.className = "health-card";
+    const header = document.createElement("header");
+    header.className = "health-card-header";
+    const title = document.createElement("div");
+    const heading = document.createElement("h3");
+    heading.textContent = client.client?.client_id || "不明な端末";
+    const region = document.createElement("p");
+    region.textContent = `${client.client?.region || "地域未設定"} / 最終受信 ${client.received_at || "-"}`;
+    title.append(heading, region);
+    const badge = document.createElement("span");
+    badge.className = `health-status health-status-${client.status === "online" ? "online" : "offline"}`;
+    badge.textContent = client.status === "online" ? "オンライン" : "オフライン";
+    header.append(title, badge);
+
+    const summary = document.createElement("p");
+    summary.className = "health-summary";
+    const errors = healthErrors(client);
+    summary.textContent = errors.length ? errors.join(" / ") : "異常は報告されていません";
+
+    const details = document.createElement("details");
+    const detailsSummary = document.createElement("summary");
+    detailsSummary.textContent = "詳細を表示";
+    details.appendChild(detailsSummary);
+    const groups = document.createElement("div");
+    groups.className = "health-detail-groups";
+    SENSOR_NAMES.forEach((sensorName) => {
+        groups.appendChild(createHealthGroup(sensorName.toUpperCase(), client.sensor?.[sensorName], [
+            ["接続", "connect"], ["読み取り", "read"], ["読取成功数", "read_count"],
+            ["失敗数", "fail_count"], ["連続失敗数", "consecutive_fail_count"],
+            ["最終成功", "last_success_at"], ["最終失敗", "last_failed_at"], ["エラー", "error"],
+        ]));
+    });
+    groups.appendChild(createHealthGroup("サーバー送信", client.server_send, [
+        ["成功", "success"], ["失敗数", "fail_count"], ["連続失敗数", "consecutive_fail_count"],
+        ["最終成功", "last_success_at"], ["最終失敗", "last_failed_at"], ["HTTPステータス", "last_status_code"], ["エラー", "error"],
+    ]));
+    groups.appendChild(createHealthGroup("ランタイム", client.runtime, [
+        ["起動時刻", "started_at"], ["最終ループ", "last_loop_at"], ["ループ回数", "loop_count"], ["稼働秒数", "uptime_seconds"],
+    ]));
+    details.appendChild(groups);
+    card.append(header, summary, details);
+    return card;
+}
+
+const SENSOR_NAMES = ["bme280", "dht22", "mhz19c"];
+
+function healthErrors(client) {
+    const errors = [];
+    SENSOR_NAMES.forEach((name) => {
+        const sensor = client.sensor?.[name];
+        if (sensor && (!sensor.connect || !sensor.read || sensor.error)) {
+            errors.push(`${sensor.name || name}: ${sensor.error || "読み取り異常"}`);
+        }
+    });
+    if (client.server_send && (!client.server_send.success || client.server_send.error)) {
+        errors.push(`サーバー送信: ${client.server_send.error || "失敗"}`);
+    }
+    return errors;
+}
+
+function createHealthGroup(title, values, fields) {
+    const group = document.createElement("section");
+    group.className = "health-detail-group";
+    const heading = document.createElement("h4");
+    heading.textContent = title;
+    const list = document.createElement("dl");
+    fields.forEach(([label, field]) => {
+        const term = document.createElement("dt");
+        const definition = document.createElement("dd");
+        const value = values?.[field];
+        term.textContent = label;
+        definition.textContent = typeof value === "boolean"
+            ? (value ? "正常" : "異常")
+            : (value === undefined || value === null || value === "" ? "-" : value);
+        list.append(term, definition);
+    });
+    group.append(heading, list);
+    return group;
 }
 
 function updateDataViews(options = {}) {
@@ -497,10 +633,10 @@ function labelForField(field) {
 function renderEmptyState() {
     const hasRows = tableRows.length > 0;
 
-    toolbar.hidden = !hasRows;
-    filterPanel.hidden = !hasRows;
-    paginationBar.hidden = !hasRows || currentView() === "graph";
-    emptyState.hidden = hasRows;
+    toolbar.hidden = false;
+    filterPanel.hidden = !hasRows || currentView() !== "table";
+    paginationBar.hidden = !hasRows || currentView() !== "table";
+    emptyState.hidden = hasRows || currentView() !== "table";
 
     if (!hasRows) {
         chartPanel.hidden = true;
@@ -1015,9 +1151,15 @@ function formatValue(value) {
 
 syncNumericFilterInputs();
 updateDataViews({ preservePage: true });
+connectHealthStream();
 
 viewButtons.forEach((button) => {
-    button.addEventListener("click", () => setView(button.dataset.viewButton));
+    button.addEventListener("click", () => {
+        setView(button.dataset.viewButton);
+        if (button.dataset.viewButton === "health") {
+            refreshHealthData();
+        }
+    });
 });
 
 filterControls.forEach((control) => {
@@ -1037,7 +1179,7 @@ numericFilterOps.forEach((control) => {
 });
 
 clearFiltersButton.addEventListener("click", clearFilters);
-refreshButton.addEventListener("click", refreshSensorData);
+refreshButton.addEventListener("click", refreshDashboardData);
 csvDownloadButton.addEventListener("click", downloadCsv);
 pageSizeSelects.forEach((select) => {
     select.addEventListener("change", () => {

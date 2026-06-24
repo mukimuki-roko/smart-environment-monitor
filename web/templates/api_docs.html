@@ -26,6 +26,7 @@
                     <a href="#api-sensor-data">全センサーデータ</a>
                     <a href="#api-sensor-search">センサーデータ検索</a>
                     <a href="#api-health">ヘルス取得</a>
+                    <a href="#api-health-download">ヘルス履歴CSV</a>
                     <a href="#api-health-stream">ヘルスストリーム</a>
                 </nav>
             </aside>
@@ -111,6 +112,17 @@
             <section class="api-inline-result" id="health-result" data-api-result hidden aria-live="polite">
                 <h3>実行結果</h3><p data-api-result-status></p><pre data-api-result-body>{}</pre>
             </section>
+        </section>
+
+        <section class="api-section" id="api-health-download">
+            <div class="api-endpoint-heading"><span class="api-method api-method-get">GET</span><h2>/api/health/&lt;client_id&gt;/download</h2></div>
+            <p class="api-lead">指定端末の保存済みヘルス履歴をCSVでダウンロードします。</p>
+            <p>端末IDは完全一致で検索します。CSVは受信時刻順の全履歴を既存の保存CSVと同じ列順で返し、UTF-8 BOMを含みます。該当履歴がない場合は <code>404 {"error":"health history not found"}</code> を返します。</p>
+            <details class="api-code-example"><summary>curl 例を表示</summary><pre><code>curl -OJ {{ request.host_url.rstrip('/') }}/api/health/tk240131/download</code></pre></details>
+            <div class="api-request-actions">
+                <code data-api-url="/api/health/tk240131/download">/api/health/tk240131/download</code>
+                <button class="secondary-button" type="button" data-copy-api-url="/api/health/tk240131/download">URLをコピー</button>
+            </div>
         </section>
 
         <section class="api-section" id="api-health-stream">

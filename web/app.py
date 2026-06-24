@@ -1,7 +1,9 @@
 import csv
 import json
 import queue
+import re
 import threading
+from io import StringIO
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -389,6 +391,31 @@ def health_payload(client_id="", region=""):
     }
 
 
+def health_history_csv(client_id):
+    if not HEALTH_HISTORY_PATH.exists():
+        return None
+
+    with HEALTH_HISTORY_PATH.open("r", newline="", encoding="utf-8") as f:
+        rows = [
+            {field: row.get(field, "") for field in HEALTH_FIELDS}
+            for row in csv.DictReader(f)
+            if row.get("client_id") == client_id
+        ]
+    if not rows:
+        return None
+
+    output = StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=HEALTH_FIELDS, lineterminator="\r\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return "\ufeff" + output.getvalue()
+
+
+def health_download_filename(client_id):
+    safe_client_id = re.sub(r"[^A-Za-z0-9._-]+", "_", client_id).strip("._")
+    return f"health-{safe_client_id or 'client'}.csv"
+
+
 def publish_health_update():
     with HEALTH_STREAM_LOCK:
         subscribers = tuple(HEALTH_STREAM_SUBSCRIBERS)
@@ -451,6 +478,19 @@ def health_data():
         client_id=request.args.get("client_id", ""),
         region=request.args.get("region", ""),
     ))
+
+
+@app.route("/api/health/<client_id>/download")
+def download_health_history(client_id):
+    with HEALTH_LOCK:
+        content = health_history_csv(client_id)
+    if content is None:
+        return jsonify({"error": "health history not found"}), 404
+    return Response(
+        content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{health_download_filename(client_id)}"'},
+    )
 
 
 @app.route("/api/health/stream")

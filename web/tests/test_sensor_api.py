@@ -84,12 +84,19 @@ class SensorApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"/api/sensor-data/search", response.data)
+        self.assertIn(b"/api/health/&lt;client_id&gt;/download", response.data)
         self.assertIn(b"data-api-search-form", response.data)
         self.assertIn(b"data-health-stream-start", response.data)
         self.assertIn(b"api-toc", response.data)
         self.assertIn(b"data-copy-api-url", response.data)
         self.assertIn(b"data-api-result", response.data)
         self.assertNotIn(b'id="api-health-post"', response.data)
+
+    def test_dashboard_has_no_sensor_csv_download_button(self):
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"data-csv-download", response.data)
 
 
 if __name__ == "__main__":

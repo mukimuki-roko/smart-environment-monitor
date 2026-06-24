@@ -105,6 +105,29 @@ class HealthApiTest(unittest.TestCase):
         self.assertEqual(data["filters"], {"client_id": "client", "region": "osa"})
         self.assertEqual([client["client"]["client_id"] for client in data["clients"]], ["client-osaka"])
 
+    def test_downloads_all_history_for_one_client_as_csv(self):
+        self.client.post("/api/health", json=health_payload("client-a"))
+        second = health_payload("client-a")
+        second["runtime"]["loop_count"] = 4
+        self.client.post("/api/health", json=second)
+        self.client.post("/api/health", json=health_payload("client-b"))
+
+        response = self.client.get("/api/health/client-a/download")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "text/csv")
+        self.assertEqual(response.headers["Content-Disposition"], 'attachment; filename="health-client-a.csv"')
+        self.assertTrue(response.data.startswith(b"\xef\xbb\xbf"))
+        rows = list(web_app.csv.DictReader(response.data.decode("utf-8-sig").splitlines()))
+        self.assertEqual([row["client_id"] for row in rows], ["client-a", "client-a"])
+        self.assertEqual([row["runtime_loop_count"] for row in rows], ["3", "4"])
+
+    def test_download_returns_not_found_when_client_has_no_history(self):
+        response = self.client.get("/api/health/missing/download")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json(), {"error": "health history not found"})
+
     def test_migrates_history_without_success_count(self):
         old_fields = [field for field in web_app.HEALTH_FIELDS if field != "server_send_success_count"]
         old_row = web_app.flatten_health(health_payload(), "2026-06-21T10:00:00+09:00")

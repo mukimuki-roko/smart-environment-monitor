@@ -56,7 +56,6 @@ const paginationBars = document.querySelectorAll(".pagination-bar");
 const emptyState = document.querySelector(".empty-state");
 const refreshButton = document.querySelector("[data-refresh-button]");
 const clearFiltersButton = document.querySelector("[data-clear-filters]");
-const csvDownloadButton = document.querySelector("[data-csv-download]");
 const sensorSummary = document.querySelector("[data-sensor-summary]");
 const pageSummaries = document.querySelectorAll("[data-page-summary]");
 const pageCurrentLabels = document.querySelectorAll("[data-page-current]");
@@ -306,7 +305,15 @@ function createHealthCard(client, detailsOpen = false) {
     const badge = document.createElement("span");
     badge.className = `health-status health-status-${client.status === "online" ? "online" : "offline"}`;
     badge.textContent = client.status === "online" ? "オンライン" : "オフライン";
-    header.append(title, badge);
+    const actions = document.createElement("div");
+    actions.className = "health-card-actions";
+    const download = document.createElement("a");
+    download.className = "secondary-button";
+    download.href = `/api/health/${encodeURIComponent(client.client?.client_id || "")}/download`;
+    download.textContent = "CSV保存";
+    download.setAttribute("aria-label", `${client.client?.client_id || "端末"} のヘルス履歴CSVを保存`);
+    actions.append(badge, download);
+    header.append(title, actions);
 
     const summary = document.createElement("p");
     summary.className = "health-summary";
@@ -1147,46 +1154,6 @@ function chartFilename(metric) {
     return `sensor-${metricFileNames[metric] || metric}-${timestamp}.png`;
 }
 
-function downloadCsv() {
-    const rows = sortedRows;
-    const header = fieldnames.map((field) => labelForField(field));
-    const lines = [
-        header,
-        ...rows.map((row) => fieldnames.map((field) => row[field] || "")),
-    ];
-    const csv = `\uFEFF${lines.map((line) => line.map(escapeCsvValue).join(",")).join("\r\n")}`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-
-    downloadDataUrl(url, csvFilename());
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function escapeCsvValue(value) {
-    const text = String(value);
-
-    if (/[",\r\n]/.test(text)) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-
-    return text;
-}
-
-function csvFilename() {
-    const now = new Date();
-    const timestamp = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-        "-",
-        String(now.getHours()).padStart(2, "0"),
-        String(now.getMinutes()).padStart(2, "0"),
-        String(now.getSeconds()).padStart(2, "0"),
-    ].join("");
-
-    return `sensor-data-${timestamp}.csv`;
-}
-
 function defaultModalFilterState() {
     return {
         text: {
@@ -1337,7 +1304,6 @@ clearFiltersButton.addEventListener("click", clearFilters);
 healthFilterControls.forEach((control) => control.addEventListener("input", renderHealth));
 clearHealthFiltersButton.addEventListener("click", clearHealthFilters);
 refreshButton.addEventListener("click", refreshDashboardData);
-csvDownloadButton.addEventListener("click", downloadCsv);
 pageSizeSelects.forEach((select) => {
     select.addEventListener("change", () => {
         if (select.value === "custom") {
